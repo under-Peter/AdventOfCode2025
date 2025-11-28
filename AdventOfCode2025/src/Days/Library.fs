@@ -11,6 +11,7 @@ module Util =
         >> function
             | true, num -> Some num
             | _ -> None
+    let difference (x,  y) = x - y
 
 module Day1 =
     let parseLine (line: string) =
@@ -33,7 +34,7 @@ module Day1 =
         File.ReadLines >> Seq.fold accumulateTwoReversedLists ([], [])
 
     let solveImpl1 =
-        let absDiff: (int * int) -> int = fun (x, y) -> Math.Abs(x - y)
+        let absDiff = Util.difference >> abs;
 
         parseFile
         >> fun (xs, ys) -> List.zip (List.sort xs) (List.sort ys)
@@ -49,8 +50,6 @@ module Day1 =
                 x * xCountInX * xCountInY
 
             xs |> List.countBy id |> List.sumBy weightedProduct
-
-    //List.fold accumulator 0 (List.countBy id xs)
 
     let solve () =
         let result1 = solveImpl1 "../Days/data/day01_1.txt"
@@ -75,11 +74,11 @@ module Day2 =
                 min minVal newVal, max maxVal newVal, zeroCount + boolToInt (newVal = 0)
 
         Array.pairwise
-        >> Array.map (fun (x, y) -> x - y)
+        >> Array.map Util.difference
         >> Array.fold accumulateProperties (0, 0, 0)
         >> function
-            | x, 0, 0 when x < 0 && x >= -3 -> true
-            | 0, x, 0 when 0 < x && x <= 3 -> true
+            | minDiff, 0, 0 when List.contains minDiff [-3;-2;-1] -> true
+            | 0, maxDiff, 0 when List.contains maxDiff [1;2;3] -> true
             | _ -> false
 
     let solveImpl1 = parseFile >> Seq.sumBy (isSafe >> boolToInt)
