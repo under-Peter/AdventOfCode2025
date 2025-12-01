@@ -44,6 +44,24 @@ module Day1 =
     let expandToSingleSteps = Seq.collect (fun i -> Seq.replicate (abs i) (sign i))
     let solveImpl2 = parseFile >> expandToSingleSteps >> countZerosVisited
 
+    let solveImpl2' =
+        let isCrossing posBeforeWrap =
+            posBeforeWrap < 0 || posBeforeWrap > wrapAround
+
+        let countCrossings (pos, step) =
+            let nCycles = abs step / wrapAround
+            // count 0-positions but don't count arriving at a 0 in the current step
+            match pos, step with
+            | 0, step -> 1 + nCycles - Util.boolToInt (step % wrapAround = 0)
+            | pos, step -> nCycles + Util.boolToInt (isCrossing (pos + step % wrapAround))
+
+        parseFile
+        >> Seq.toList
+        >> (fun steps -> List.zip (List.scan moveWithWrapAround startPos steps) (List.append steps (List.singleton 0)))
+        >> List.sumBy countCrossings
+
+
     let solve () =
         printfn $"""%d{solveImpl1 "../Days/data/day01.txt"} ref(1105)"""
         printfn $"""%d{solveImpl2 "../Days/data/day01.txt"} ref(6599)"""
+        printfn $"""%d{solveImpl2' "../Days/data/day01.txt"} ref(6599)"""
