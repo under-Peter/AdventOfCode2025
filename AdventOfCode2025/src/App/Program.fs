@@ -6,6 +6,7 @@ open System
 let dispatch n =
     match n with
     | 1 -> Day1.solve ()
+    | 2 -> Day2.solve ()
     | _ -> failwithf "Unknown function id: %d." n
 
 [<EntryPoint>]

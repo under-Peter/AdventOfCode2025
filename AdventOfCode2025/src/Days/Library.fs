@@ -4,6 +4,12 @@ open System.IO
 open System
 
 module Util =
+    let parseInt64: string -> option<int64> =
+        Int64.TryParse
+        >> function
+            | true, num -> Some num
+            | _ -> None
+
     let parseInt: string -> option<int> =
         Int32.TryParse
         >> function
@@ -65,3 +71,67 @@ module Day1 =
         printfn $"""%d{solveImpl1 "../Days/data/day01.txt"} ref(1105)"""
         printfn $"""%d{solveImpl2 "../Days/data/day01.txt"} ref(6599)"""
         printfn $"""%d{solveImpl2' "../Days/data/day01.txt"} ref(6599)"""
+
+module Day2 =
+    let rangeFromStrings strFrom strTo =
+        match Util.parseInt64 strFrom, Util.parseInt64 strTo with
+        | Some fromId, Some toId -> Some(fromId, toId)
+        | _ -> failwith "Could not ids"
+
+    let readRanges path =
+        path
+        |> File.ReadAllText
+        |> fun line -> line.Split ','
+        |> Array.map (fun range -> range.Split('-'))
+        |> Array.choose (function
+            | [| fromId; toId |] -> rangeFromStrings fromId toId
+            | _ -> failwith "Could not parse range")
+
+    let powersOf10 = 0L :: List.scan (fun state _ -> 10L * state) 1L [ 1..18 ]
+
+    let numberOfDigits num =
+        List.findIndexBack ((>=) num) powersOf10
+
+    let splitNumber num =
+        match numberOfDigits num with
+        | nDigits when nDigits % 2 = 1 -> None
+        | nDigits -> Some(num / powersOf10[nDigits / 2 + 1], num % powersOf10[nDigits / 2 + 1])
+
+    let isValidIdPart1 =
+        splitNumber >> Option.map (fun (x, y) -> x <> y) >> Option.defaultValue true
+
+    let extractInvalidIdsInRange validityCheck (fromId, toId) =
+        seq { fromId..toId } |> Seq.filter (not << validityCheck)
+
+    let solveImpl1 path =
+        path
+        |> readRanges
+        |> Seq.map (Seq.sum << extractInvalidIdsInRange isValidIdPart1)
+        |> Seq.sum
+
+    // reversed because it's easier
+    let reverseDigitsOfNumber (number: int64) =
+        List.unfold (fun (s: int64) -> if s = 0L then None else Some(s % 10L, s / 10L)) number
+
+    let allPatterns (l: list<int64>) =
+        seq {
+            for i in [ 1 .. (l.Length / 2) ] do
+                if l.Length % i = 0 then
+                    Seq.reduce (@) (Seq.replicate (l.Length / i) (List.take i l))
+        }
+
+    let isValidIdPart2 num =
+        num
+        |> reverseDigitsOfNumber
+        |> fun digits -> Seq.contains digits (allPatterns digits)
+        |> not
+
+    let solveImpl2 path =
+        path
+        |> readRanges
+        |> Seq.map (Seq.sum << extractInvalidIdsInRange isValidIdPart2)
+        |> Seq.sum
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day02.txt"} ref(52316131093L)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day02.txt"} ref(69564213293L)"""
