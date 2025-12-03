@@ -2,6 +2,7 @@
 
 open System.IO
 open System
+open FSharpx
 
 module Util =
     let parseInt64: string -> option<int64> =
@@ -27,7 +28,7 @@ module Day1 =
 
     let parseLine =
         function
-        | (str: string) when str.Length > 1 -> str[0], Util.parseInt str[1..]
+        | (str: string) when String.length str > 1 -> str[0], Util.parseInt str[1..]
         | _ -> ' ', None
         >> function
             | 'L', Some steps -> Some -steps
@@ -135,3 +136,43 @@ module Day2 =
     let solve () =
         printfn $"""%A{solveImpl1 "../Days/data/day02.txt"} ref(52316131093L)"""
         printfn $"""%A{solveImpl2 "../Days/data/day02.txt"} ref(69564213293L)"""
+
+module Day3 =
+    let parseLine line =
+        line
+        |> String.toCharArray
+        |> Array.map (Util.parseInt << string)
+        |> fun xs ->
+            match Array.choose id xs with
+            | ys when ys.Length = xs.Length -> ys
+            | _ -> failwithf "could not parse line '%s'" line
+
+    let parseFile = File.ReadLines >> Seq.map parseLine
+
+    let indEarliestMax (xs: array<int>) =
+        seq { 0 .. xs.Length - 1 }
+        |> Seq.fold (fun iMax i -> if xs[i] > xs[iMax] then i else iMax) 0
+
+
+    let rec maxJoltageBatteries pick nums =
+        match pick with
+        | 0 -> []
+        | _ ->
+            let pickableBatteries = Array.take (Array.length nums - (pick - 1)) nums
+            let ind = indEarliestMax pickableBatteries
+
+            int64 pickableBatteries[ind]
+            :: maxJoltageBatteries (pick - 1) (Array.skip (ind + 1) nums)
+
+    let maxJoltage pick nums =
+        nums |> maxJoltageBatteries pick |> List.reduce (fun a b -> 10L * a + b)
+
+
+    let solveImpl1 = parseFile >> Seq.sumBy (maxJoltage 2)
+    let solveImpl2 = parseFile >> Seq.sumBy (maxJoltage 12)
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day03_example.txt"} ref(357)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day03.txt"} ref(17281)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day03_example.txt"} ref(3121910778619)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day03.txt"} ref(171388730430281)"""
