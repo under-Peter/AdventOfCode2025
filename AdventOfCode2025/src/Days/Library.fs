@@ -141,7 +141,7 @@ module Day3 =
     let parseLine line =
         line
         |> String.toCharArray
-        |> Array.map (Util.parseInt << string)
+        |> Array.map (string >> Util.parseInt)
         |> fun xs ->
             match Array.choose id xs with
             | ys when ys.Length = xs.Length -> ys
@@ -149,20 +149,20 @@ module Day3 =
 
     let parseFile = File.ReadLines >> Seq.map parseLine
 
-    let indEarliestMax (xs: array<int>) =
-        seq { 0 .. xs.Length - 1 }
+    let indEarliestMax xs =
+        seq { 0 .. Array.length xs - 1 }
         |> Seq.fold (fun iMax i -> if xs[i] > xs[iMax] then i else iMax) 0
 
 
-    let rec maxJoltageBatteries pick nums =
+    [<TailCall>]
+    let rec maxJoltageBatteries pick (nums: int[]) =
         match pick with
         | 0 -> []
         | _ ->
-            let pickableBatteries = Array.take (Array.length nums - (pick - 1)) nums
+            let pickableBatteries = nums[0 .. Array.length nums - pick]
             let ind = indEarliestMax pickableBatteries
 
-            int64 pickableBatteries[ind]
-            :: maxJoltageBatteries (pick - 1) (Array.skip (ind + 1) nums)
+            int64 pickableBatteries[ind] :: maxJoltageBatteries (pick - 1) nums[ind + 1 ..] //(Array.skip (ind + 1) nums)
 
     let maxJoltage pick nums =
         nums |> maxJoltageBatteries pick |> List.reduce (fun a b -> 10L * a + b)
