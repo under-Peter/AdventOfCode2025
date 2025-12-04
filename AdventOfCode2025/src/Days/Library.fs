@@ -184,32 +184,30 @@ module Day4 =
         >> Seq.collect (fun (yCoord, line) ->
             line
             |> Seq.indexed
-            |> Seq.map (fun (xCoord, symbol) -> (symbol, (xCoord, yCoord))))
+            |> Seq.map (fun (xCoord, symbol) -> symbol, (xCoord, yCoord)))
 
-    let rollCoordinates symCoordPairs =
-        symCoordPairs |> Seq.filter (fst >> (=) '@') |> Seq.map snd |> set
+    let rollCoordinates =
+        Seq.filter (fst >> (=) '@') >> Seq.map snd >> set
+
+    let neighborOffsets =
+        Array.allPairs [| -1 .. 1 |] [| -1 .. 1 |] |> Array.filter ((<>) (0, 0))
 
     let neighbors (x, y) =
-        Seq.allPairs (seq { -1 .. 1 }) (seq { -1 .. 1 })
-        |> Seq.filter ((<>) (0, 0))
-        |> Seq.map (fun (dx, dy) -> x + dx, y + dy)
+        neighborOffsets |> Array.map (fun (dx, dy) -> x + dx, y + dy)
 
     let movableRolls rollCoordinates =
         rollCoordinates
-        |> Set.filter (fun coord -> neighbors coord |> Seq.filter rollCoordinates.Contains |> Seq.length |> (>) 4)
+        |> Set.filter (neighbors >> Seq.filter rollCoordinates.Contains >> Seq.length >> (>) 4)
 
     let solveImpl1 = parseFile >> rollCoordinates >> movableRolls >> Set.count
 
-    let solveImpl2  =
+    let solveImpl2 =
         parseFile
         >> rollCoordinates
-        >> fun coords ->
-            Seq.unfold
-                (fun rolls ->
-                    match movableRolls rolls with
-                    | toRemove when toRemove.Count = 0 -> None
-                    | toRemove -> Some(toRemove.Count, rolls - toRemove))
-                coords
+        >> Seq.unfold (fun rolls ->
+            match movableRolls rolls with
+            | toRemove when toRemove.IsEmpty -> None
+            | toRemove -> Some(toRemove.Count, rolls - toRemove))
         >> Seq.sum
 
 
