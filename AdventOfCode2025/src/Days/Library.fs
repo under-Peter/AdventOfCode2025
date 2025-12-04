@@ -176,3 +176,45 @@ module Day3 =
         printfn $"""%A{solveImpl1 "../Days/data/day03.txt"} ref(17281)"""
         printfn $"""%A{solveImpl2 "../Days/data/day03_example.txt"} ref(3121910778619)"""
         printfn $"""%A{solveImpl2 "../Days/data/day03.txt"} ref(171388730430281)"""
+
+module Day4 =
+    let parseFile =
+        File.ReadLines
+        >> Seq.indexed
+        >> Seq.collect (fun (yCoord, line) ->
+            line
+            |> Seq.indexed
+            |> Seq.map (fun (xCoord, symbol) -> (symbol, (xCoord, yCoord))))
+
+    let rollCoordinates symCoordPairs =
+        symCoordPairs |> Seq.filter (fst >> (=) '@') |> Seq.map snd |> set
+
+    let neighbors (x, y) =
+        Seq.allPairs (seq { -1 .. 1 }) (seq { -1 .. 1 })
+        |> Seq.filter ((<>) (0, 0))
+        |> Seq.map (fun (dx, dy) -> x + dx, y + dy)
+
+    let movableRolls rollCoordinates =
+        rollCoordinates
+        |> Set.filter (fun coord -> neighbors coord |> Seq.filter rollCoordinates.Contains |> Seq.length |> (>) 4)
+
+    let solveImpl1 = parseFile >> rollCoordinates >> movableRolls >> Set.count
+
+    let solveImpl2  =
+        parseFile
+        >> rollCoordinates
+        >> fun coords ->
+            Seq.unfold
+                (fun rolls ->
+                    match movableRolls rolls with
+                    | toRemove when toRemove.Count = 0 -> None
+                    | toRemove -> Some(toRemove.Count, rolls - toRemove))
+                coords
+        >> Seq.sum
+
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day04_example.txt"} ref(13)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day04.txt"} ref(1351)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day04_example.txt"} ref(43)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day04.txt"} ref(8345)"""
