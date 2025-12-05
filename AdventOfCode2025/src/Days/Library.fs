@@ -186,8 +186,7 @@ module Day4 =
             |> Seq.indexed
             |> Seq.map (fun (xCoord, symbol) -> symbol, (xCoord, yCoord)))
 
-    let rollCoordinates =
-        Seq.filter (fst >> (=) '@') >> Seq.map snd >> set
+    let rollCoordinates = Seq.filter (fst >> (=) '@') >> Seq.map snd >> set
 
     let neighborOffsets =
         Array.allPairs [| -1 .. 1 |] [| -1 .. 1 |] |> Array.filter ((<>) (0, 0))
@@ -216,3 +215,74 @@ module Day4 =
         printfn $"""%A{solveImpl1 "../Days/data/day04.txt"} ref(1351)"""
         printfn $"""%A{solveImpl2 "../Days/data/day04_example.txt"} ref(43)"""
         printfn $"""%A{solveImpl2 "../Days/data/day04.txt"} ref(8345)"""
+
+module Day5 =
+
+    let parseIngredientId = Util.parseInt64
+
+    let parseFreshIdRange =
+        String.splitChar [| '-' |]
+        >> function
+            | [| strIdFrom; strIdTo |] ->
+                match parseIngredientId strIdFrom, parseIngredientId strIdTo with
+                | Some idFrom, Some idTo -> Some(idFrom, idTo)
+                | _ -> None
+            | _ -> None
+
+
+    let parseFile =
+        File.ReadLines
+        >> Seq.map (fun line -> parseFreshIdRange line, parseIngredientId line)
+        >> Seq.toArray
+        >> Array.unzip
+        >> fun (ranges, ids) -> Array.choose id ranges, Array.choose id ids
+
+
+    let unionOfDisjoint =
+        let sortedRangesOverlap (_, hi) (lo, _) = lo <= hi
+        let combineSortedRanges (lo, hi1) (_, hi2) = lo, max hi1 hi2
+
+        Array.sortBy fst
+        >> Array.fold
+            (fun compressed range ->
+                match compressed with
+                | head :: tail when sortedRangesOverlap head range -> combineSortedRanges head range :: tail
+                | _ -> range :: compressed)
+            []
+        >> List.toArray
+        >> Array.rev
+
+
+    // assumes ranges is a sorted (by fst) array of disjoint intervals
+    let isFresh ranges =
+        let rec binarySearch x ranges =
+            match ranges with
+            | [||] -> None
+            | _ ->
+                let mid = ranges.Length / 2
+
+                match ranges[mid] with
+                | _, h when h < x -> binarySearch x ranges[mid + 1 ..]
+                | l, _ when x < l -> binarySearch x ranges[.. mid - 1]
+                | range -> Some range
+
+        (fun id -> binarySearch id ranges) >> Option.isSome
+
+    let countFresh (ranges, ids) =
+        let compressed = unionOfDisjoint ranges
+        ids |> Array.sumBy (isFresh compressed >> Util.boolToInt)
+
+    let solveImpl1 = parseFile >> countFresh
+
+    let solveImpl2 =
+        parseFile
+        >> fst
+        >> unionOfDisjoint
+        >> Array.sumBy (fun (lo, hi) -> hi - lo + 1L)
+
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day05_example.txt"} ref(3)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day05.txt"} ref(726)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day05_example.txt"} ref(14)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day05.txt"} ref(354226555270043)"""
