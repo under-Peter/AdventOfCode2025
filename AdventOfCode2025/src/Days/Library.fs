@@ -291,60 +291,60 @@ module Day6 =
     let parseLine (line: string) =
         line.Split ' ' |> Array.filter (String.length >> (<) 0)
 
-    let parseFile = File.ReadLines >> Seq.map parseLine >> Seq.toArray >> Array.rev // reverse such that operators are first
-
     let translateOps =
         Array.map (function
             | "+" -> (+)
             | "*" -> (*)
             | x -> failwithf "could not parse operator %s" x)
 
-    let translateOperands =
-        Array.map (Array.map Util.parseInt64) >> Array.map (Array.choose id)
+    let translateOperands = Array.map (Array.map Util.parseInt64 >> Array.choose id)
 
-    let solveImpl1 =
-        parseFile
+
+    let parseFilePart1 =
+        File.ReadLines
+        >> Seq.map parseLine
+        >> Seq.toArray
         >> fun lines ->
-            let ops = translateOps lines[0]
+            let ops = translateOps lines[lines.Length - 1]
 
-            let operands = lines[1..] |> translateOperands
+            let operands = lines[.. lines.Length - 2] |> translateOperands |> Array.transpose
+            Array.zip ops operands
 
-            Array.reduce (fun acc x -> Array.map3 (fun x y op -> op x y) acc x ops) operands
-        >> Array.sum
+    let reduceOpOverArgs (op, args) = Array.reduce op args
 
-    //let transpose arr =
-    //arr
-    //|> Array.fold (Array.map2 (fun acc x -> x :: acc)) (Array.replicate (Array.length arr[0]) [])
-    //|> Array.map (List.toArray >> Array.rev)
-    //
-    //let handleColumn (column: array<string>) =
-    //let maxLen = Array.maxBy String.length column |> String.length
-    //
-    //column
-    //|> Array.map (String.padRight maxLen)
-    //|> Array.map (String.toCharArray >> Array.rev)
-    //|> transpose
-    //|> Array.map (Array.filter ((<>) ' '))
-    //|> Array.map (String.Join "")
-    //|> Array.map
-    //
-    //
-    //let translateOperands2 (numberLines: array<array<string>>) =
-    //numberLines
-    //|> transpose // all strings in a row that belong together
-    //|> Array.map handleColumn
-    //
-    //let solveImpl2 path =
-    //path
-    //|> parseFile
-    //|> fun lines ->
-    //let ops = translateOps lines[0]
-    //let operands = lines[1..] |> translateOperands2
-    //Array.reduce (fun acc x -> Array.map3 (fun x y op -> op x y) acc x ops) operands
+    let solveImpl1 = parseFilePart1 >> Array.sumBy reduceOpOverArgs
+
+    let parseFilePart2 path =
+        let lines = File.ReadAllLines path
+        let ops = translateOps (parseLine lines[lines.Length - 1]) |> Array.toList
+
+        let charArray = lines[.. (lines.Length - 2)] |> Array.map String.toCharArray
+
+        let splitAtNones =
+            Array.fold
+                (fun acc x ->
+                    match x, acc with
+                    | None, _ -> [] :: acc // start new list
+                    | Some i, currentList :: rest -> (i :: currentList) :: rest
+                    | _ -> failwith "unexpected failure")
+                [ [] ]
+            >> List.map List.toArray
+
+        let operands =
+            charArray
+            |> Array.transpose // look at columns
+            |> Array.map (System.String >> Util.parseInt64)
+            |> splitAtNones
+            |> List.rev
+
+        List.zip ops operands
+
+
+    let solveImpl2 = parseFilePart2 >> List.sumBy reduceOpOverArgs
 
 
     let solve () =
         printfn $"""%A{solveImpl1 "../Days/data/day06_example.txt"} ref(4277556)"""
         printfn $"""%A{solveImpl1 "../Days/data/day06.txt"} ref(7098065460541L)"""
-//printfn $"""%A{solveImpl2 "../Days/data/day06_example.txt"} ref(3263827)"""
-//printfn $"""%A{solveImpl2 "../Days/data/day04.txt"} ref(8345)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day06_example.txt"} ref(3263827)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day06.txt"} ref(13807151830618)"""
