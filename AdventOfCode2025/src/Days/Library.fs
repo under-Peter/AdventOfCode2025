@@ -286,3 +286,65 @@ module Day5 =
         printfn $"""%A{solveImpl1 "../Days/data/day05.txt"} ref(726)"""
         printfn $"""%A{solveImpl2 "../Days/data/day05_example.txt"} ref(14)"""
         printfn $"""%A{solveImpl2 "../Days/data/day05.txt"} ref(354226555270043)"""
+
+module Day6 =
+    let parseLine (line: string) =
+        line.Split ' ' |> Array.filter (String.length >> (<) 0)
+
+    let parseFile = File.ReadLines >> Seq.map parseLine >> Seq.toArray >> Array.rev // reverse such that operators are first
+
+    let translateOps =
+        Array.map (function
+            | "+" -> (+)
+            | "*" -> (*)
+            | x -> failwithf "could not parse operator %s" x)
+
+    let translateOperands =
+        Array.map (Array.map Util.parseInt64) >> Array.map (Array.choose id)
+
+    let solveImpl1 =
+        parseFile
+        >> fun lines ->
+            let ops = translateOps lines[0]
+
+            let operands = lines[1..] |> translateOperands
+
+            Array.reduce (fun acc x -> Array.map3 (fun x y op -> op x y) acc x ops) operands
+        >> Array.sum
+
+    //let transpose arr =
+    //arr
+    //|> Array.fold (Array.map2 (fun acc x -> x :: acc)) (Array.replicate (Array.length arr[0]) [])
+    //|> Array.map (List.toArray >> Array.rev)
+    //
+    //let handleColumn (column: array<string>) =
+    //let maxLen = Array.maxBy String.length column |> String.length
+    //
+    //column
+    //|> Array.map (String.padRight maxLen)
+    //|> Array.map (String.toCharArray >> Array.rev)
+    //|> transpose
+    //|> Array.map (Array.filter ((<>) ' '))
+    //|> Array.map (String.Join "")
+    //|> Array.map
+    //
+    //
+    //let translateOperands2 (numberLines: array<array<string>>) =
+    //numberLines
+    //|> transpose // all strings in a row that belong together
+    //|> Array.map handleColumn
+    //
+    //let solveImpl2 path =
+    //path
+    //|> parseFile
+    //|> fun lines ->
+    //let ops = translateOps lines[0]
+    //let operands = lines[1..] |> translateOperands2
+    //Array.reduce (fun acc x -> Array.map3 (fun x y op -> op x y) acc x ops) operands
+
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day06_example.txt"} ref(4277556)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day06.txt"} ref(7098065460541L)"""
+//printfn $"""%A{solveImpl2 "../Days/data/day06_example.txt"} ref(3263827)"""
+//printfn $"""%A{solveImpl2 "../Days/data/day04.txt"} ref(8345)"""
