@@ -411,7 +411,7 @@ module Day7 =
             let unaffectedBeams = beamsPreviousRow - intersection
 
             let degeneracyBeforeIfSplit =
-                Option.someIf (flip Seq.contains splittersCurrentRow)
+                Option.someIf (flip Set.contains splittersCurrentRow)
                 >> Option.bind (flip Map.tryFind pathDegeneracy)
                 >> Option.getOrElse 0L
 
