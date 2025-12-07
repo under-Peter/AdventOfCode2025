@@ -1,6 +1,7 @@
 ﻿namespace Days
 
 open System.IO
+open System.Collections.Generic
 open System
 open FSharpx
 
@@ -428,7 +429,7 @@ module Day7 =
             let newDegeneracy =
                 pathDegeneracy
                 |> Map.filter (fun k _ -> Set.contains k intersection |> not)
-                |> Util.mergeMaps degenNewBeams 
+                |> Util.mergeMaps degenNewBeams
 
             unaffectedBeams + newBeams, newDegeneracy
 
@@ -440,9 +441,37 @@ module Day7 =
         |> Map.values // degeneracies
         |> Seq.sum
 
+    let solveImpl2' path =
+        let source, splittersSeq = parseFile path
+        let splitters = Seq.toList splittersSeq
+
+        let memo = new Dictionary<Tuple<int, list<Set<int>>>, int64>()
+
+        let rec countPaths s splitters =
+            let arg = s, splitters
+
+            match memo.TryFind arg with
+            | Some res -> res
+            | None ->
+                let res =
+                    match splitters with
+                    | [] -> 1L
+                    | head :: rest when Set.contains s head ->
+                        let rCount = countPaths (s - 1) rest
+                        let lCount = countPaths (s + 1) rest
+                        lCount + rCount
+                    | _ :: rest -> countPaths s rest in
+
+                memo.Add(arg, res)
+                res
+
+        countPaths source splitters
+
 
     let solve () =
         printfn $"""%A{solveImpl1 "../Days/data/day07_example.txt"} ref(21)"""
         printfn $"""%A{solveImpl1 "../Days/data/day07.txt"} ref(1581)"""
         printfn $"""%A{solveImpl2 "../Days/data/day07_example.txt"} ref(40)"""
+        printfn $"""%A{solveImpl2' "../Days/data/day07_example.txt"} ref(40)"""
         printfn $"""%A{solveImpl2 "../Days/data/day07.txt"} ref(73007003089792L)"""
+        printfn $"""%A{solveImpl2' "../Days/data/day07.txt"} ref(73007003089792L)"""
