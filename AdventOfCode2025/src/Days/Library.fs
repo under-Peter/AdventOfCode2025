@@ -426,8 +426,9 @@ module Day7 =
                 |> Map
 
             let newDegeneracy =
-                Util.mergeMaps degenNewBeams pathDegeneracy
+                pathDegeneracy
                 |> Map.filter (fun k _ -> Set.contains k intersection |> not)
+                |> Util.mergeMaps degenNewBeams 
 
             unaffectedBeams + newBeams, newDegeneracy
 
