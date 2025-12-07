@@ -22,6 +22,11 @@ module Util =
         | true -> 1
         | false -> 0
 
+    let flip f x y = f y x
+
+    // duplicate keys will be taken from first
+    let mergeMaps m1 m2 = Map.foldBack Map.add m1 m2
+
 module Day1 =
     let wrapAround = 100
     let startPos = 50
@@ -346,3 +351,97 @@ module Day6 =
         printfn $"""%A{solveImpl1 "../Days/data/day06.txt"} ref(7098065460541L)"""
         printfn $"""%A{solveImpl2 "../Days/data/day06_example.txt"} ref(3263827)"""
         printfn $"""%A{solveImpl2 "../Days/data/day06.txt"} ref(13807151830618)"""
+
+module Day7 =
+    let parseLine =
+        String.toCharArray >> Seq.indexed >> Seq.filter (snd >> (<>) '.') >> Seq.toArray
+
+    let parseFile path =
+        let lines = path |> File.ReadLines |> Seq.map parseLine
+
+        let source =
+            lines
+            |> Seq.head
+            |> function
+                | [| sourcePos, 'S' |] -> sourcePos // |> Array.head |> fst
+                | l -> failwithf "could not use %A for first line" l
+
+        let splitters =
+            lines
+            |> Seq.skip 1
+            |> Seq.map (Array.filter (snd >> (=) '^') >> Array.map fst >> Set)
+
+        source, splitters
+
+    let newSplitBeams beams splitters =
+        beams
+        |> Set.intersect splitters
+        |> Seq.map (fun x -> Set.ofArray [| x - 1; x + 1 |])
+        |> Set.unionMany
+        |> flip (-) splitters
+
+
+    let solveImpl1 path =
+        let source, splitters = parseFile path
+
+        let splitBeams beams splitters =
+            let intersection = Set.intersect beams splitters
+
+            let newBeams = newSplitBeams beams splitters
+
+            let unaffectedBeams = beams - intersection
+            unaffectedBeams + newBeams, intersection |> Set.count
+
+        Seq.fold
+            (fun (beams: Set<int>, nSplits) splitters ->
+                let newBeams, nNewSplits = splitBeams beams splitters
+                newBeams, nSplits + nNewSplits)
+            (Set.singleton source, 0)
+            splitters
+        |> snd
+
+    let solveImpl2 path =
+        let source, splitters = parseFile path
+
+        let splitBeams beamsPreviousRow splittersCurrentRow pathDegeneracy =
+            let intersection = Set.intersect beamsPreviousRow splittersCurrentRow
+
+            let newBeams = newSplitBeams beamsPreviousRow splittersCurrentRow
+
+            let unaffectedBeams = beamsPreviousRow - intersection
+
+            let degeneracyBeforeIfSplit =
+                Option.someIf (flip Seq.contains splittersCurrentRow)
+                >> Option.bind (flip Map.tryFind pathDegeneracy)
+                >> Option.getOrElse 0L
+
+            let degenNewBeams =
+                newBeams
+                |> Set.toArray
+                |> Array.map (fun i ->
+                    let degenUp = Map.tryFind i pathDegeneracy |> Option.getOrElse 0L
+                    let degenUpLeft = degeneracyBeforeIfSplit (i - 1)
+                    let degenUpRight = degeneracyBeforeIfSplit (i + 1)
+                    i, degenUp + degenUpLeft + degenUpRight)
+                |> Map
+
+            let newDegeneracy =
+                Util.mergeMaps degenNewBeams pathDegeneracy
+                |> Map.filter (fun k _ -> Set.contains k intersection |> not)
+
+            unaffectedBeams + newBeams, newDegeneracy
+
+        Seq.fold
+            (fun (beams, pathDegeneracy) splitters -> splitBeams beams splitters pathDegeneracy)
+            (Set.singleton source, Map.add source 1L Map.empty)
+            splitters
+        |> snd
+        |> Map.values // degeneracies
+        |> Seq.sum
+
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day07_example.txt"} ref(21)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day07.txt"} ref(1581)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day07_example.txt"} ref(40)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day07.txt"} ref(73007003089792L)"""
