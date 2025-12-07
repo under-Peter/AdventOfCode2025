@@ -297,13 +297,12 @@ module Day6 =
             | "*" -> (*)
             | x -> failwithf "could not parse operator %s" x)
 
-    let translateOperands = Array.map (Array.map Util.parseInt64 >> Array.choose id)
+    let translateOperands = Array.map (Array.choose Util.parseInt64)
 
 
     let parseFilePart1 =
-        File.ReadLines
-        >> Seq.map parseLine
-        >> Seq.toArray
+        File.ReadAllLines
+        >> Array.map parseLine
         >> fun lines ->
             let ops = translateOps lines[lines.Length - 1]
 
@@ -338,7 +337,6 @@ module Day6 =
             |> List.rev
 
         List.zip ops operands
-
 
     let solveImpl2 = parseFilePart2 >> List.sumBy reduceOpOverArgs
 
