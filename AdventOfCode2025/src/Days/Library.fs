@@ -502,54 +502,41 @@ module Day8 =
         |> Array.sort
         |> Array.map (fun (_, (i1, i2)) -> i1, i2)
 
-    type ConnectionHelper =
+    type ConnectionHelper2 =
         { iToSetId: Map<int, int>
-          idToSet: Map<int, list<int>>
-          nextSetId: int }
+          idToSet: Map<int, list<int>> }
 
     let connectIndices
         { iToSetId = iToSetId
-          idToSet = idToSet
-          nextSetId = nextSetId }
+          idToSet = idToSet }
         (i1, i2)
         =
         match Map.tryFind i1 iToSetId, Map.tryFind i2 iToSetId with
-        | Some setId1, Some setId2 when setId1 = setId2 -> // nothing to do
-            { iToSetId = iToSetId
-              idToSet = idToSet
-              nextSetId = nextSetId }
-        | None, None -> // create new set
-            { iToSetId = iToSetId |> Map.add i1 nextSetId |> Map.add i2 nextSetId
-              idToSet = idToSet |> Map.add nextSetId [ i1; i2 ]
-              nextSetId = nextSetId + 1 }
-        | None, Some setId2 -> // put i1 into set 2
-            { iToSetId = iToSetId |> Map.add i1 setId2
-              idToSet = idToSet |> Map.change setId2 (Option.map (fun l -> i1 :: l))
-              nextSetId = nextSetId }
-        | Some setId1, None -> // put i2 into set 1
-            { iToSetId = iToSetId |> Map.add i2 setId1
-              idToSet = idToSet |> Map.change setId1 (Option.map (fun l -> i2 :: l))
-              nextSetId = nextSetId }
-        | Some setId1, Some setId2 -> // merge sets into set 1
-            // merge sets into 1
-            let set2 = idToSet[setId2]
+        | Some setId1, Some setId2 ->
+            match setId1 <> setId2 with
+            | true ->
+                { iToSetId = iToSetId
+                  idToSet = idToSet }
+            | false ->
+                let set2 = idToSet[setId2]
 
-            { iToSetId = List.fold (fun map i -> Map.add i setId1 map) iToSetId set2
-              idToSet =
-                idToSet
-                |> Map.remove setId2
-                |> Map.change setId1 (Option.map (fun set1 -> set2 @ set1))
-              nextSetId = nextSetId }
+                { iToSetId = set2 |> List.fold (fun map i -> Map.add i setId1 map) iToSetId
+                  idToSet =
+                    idToSet
+                    |> Map.remove setId2
+                    |> Map.change setId1 (Option.map (fun set1 -> set2 @ set1)) }
+        | _, _ -> failwith "impossible"
+
 
     let solveImpl1 path n =
         let coords = parseFile path
+        let inds = [| 0 .. Array.length coords - 1 |]
         let closest = sortedPairsWithDist coords |> Array.take n
 
         Array.fold
             connectIndices
-            { iToSetId = Map.empty
-              idToSet = Map.empty
-              nextSetId = 1 }
+            { iToSetId = inds |> Array.map (fun i -> i, i) |> Map
+              idToSet = inds |> Array.map (fun i -> i, i :: []) |> Map }
             closest
         |> fun helper -> Map.values helper.idToSet
         |> Seq.map List.length
@@ -560,19 +547,17 @@ module Day8 =
 
     let solveImpl2 path =
         let coords = parseFile path
+        let inds = [| 0 .. Array.length coords - 1 |]
         let closest = sortedPairsWithDist coords
 
         let i =
             Seq.scan
                 connectIndices
-                { iToSetId = Map.empty
-                  idToSet = Map.empty
-                  nextSetId = 1 }
+                { iToSetId = inds |> Array.map (fun i -> i, i) |> Map
+                  idToSet = inds |> Array.map (fun i -> i, i :: []) |> Map }
                 closest
             |> Seq.map (fun helper -> Map.values helper.idToSet)
-            |> Seq.findIndex (fun sets ->
-                Seq.length sets = 1
-                && Seq.head sets |> List.length |> (=) coords.Length)
+            |> Seq.findIndex (fun sets -> Seq.length sets = 1 && Seq.head sets |> List.length |> (=) coords.Length)
 
         let i1, i2 = closest[i - 1] // the last pair we needed to add before being complete
         coords[i1].x * coords[i2].x
