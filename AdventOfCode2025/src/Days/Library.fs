@@ -513,7 +513,7 @@ module Day8 =
         =
         match Map.tryFind i1 iToSetId, Map.tryFind i2 iToSetId with
         | Some setId1, Some setId2 ->
-            match setId1 <> setId2 with
+            match setId1 = setId2 with
             | true ->
                 { iToSetId = iToSetId
                   idToSet = idToSet }
