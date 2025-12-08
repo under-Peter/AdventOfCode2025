@@ -475,3 +475,112 @@ module Day7 =
         printfn $"""%A{solveImpl2' "../Days/data/day07_example.txt"} ref(40)"""
         printfn $"""%A{solveImpl2 "../Days/data/day07.txt"} ref(73007003089792L)"""
         printfn $"""%A{solveImpl2' "../Days/data/day07.txt"} ref(73007003089792L)"""
+
+module Day8 =
+    type Coord = { x: int64; y: int64; z: int64 }
+
+    let square x = x * x
+
+    let distSquared c1 c2 =
+        square (c1.x - c2.x) + square (c1.y - c2.y) + square (c1.z - c2.z)
+
+    let parseLine line =
+        line
+        |> String.splitChar [| ',' |]
+        |> Array.map Util.parseInt64
+        |> function
+            | [| Some x; Some y; Some z |] -> { x = x; y = y; z = z }
+            | _ -> failwithf "failed to parse line '%s'" line
+
+
+    let parseFile = File.ReadLines >> Seq.map parseLine >> Seq.toArray
+
+    let sortedPairsWithDist coords =
+        [| 0 .. (Array.length coords - 1) |]
+        |> Array.collect (fun i -> [| 0 .. (i - 1) |] |> Array.map (fun j -> (j, i)))
+        |> Array.map (fun (i, j) -> distSquared coords[i] coords[j], (i, j))
+        |> Array.sort
+        |> Array.map (fun (_, (i1, i2)) -> i1, i2)
+
+    type ConnectionHelper =
+        { iToSetId: Map<int, int>
+          idToSet: Map<int, list<int>>
+          nextSetId: int }
+
+    let connectIndices
+        { iToSetId = iToSetId
+          idToSet = idToSet
+          nextSetId = nextSetId }
+        (i1, i2)
+        =
+        match Map.tryFind i1 iToSetId, Map.tryFind i2 iToSetId with
+        | Some setId1, Some setId2 when setId1 = setId2 -> // nothing to do
+            { iToSetId = iToSetId
+              idToSet = idToSet
+              nextSetId = nextSetId }
+        | None, None -> // create new set
+            { iToSetId = iToSetId |> Map.add i1 nextSetId |> Map.add i2 nextSetId
+              idToSet = idToSet |> Map.add nextSetId [ i1; i2 ]
+              nextSetId = nextSetId + 1 }
+        | None, Some setId2 -> // put i1 into set 2
+            { iToSetId = iToSetId |> Map.add i1 setId2
+              idToSet = idToSet |> Map.change setId2 (Option.map (fun l -> i1 :: l))
+              nextSetId = nextSetId }
+        | Some setId1, None -> // put i2 into set 1
+            { iToSetId = iToSetId |> Map.add i2 setId1
+              idToSet = idToSet |> Map.change setId1 (Option.map (fun l -> i2 :: l))
+              nextSetId = nextSetId }
+        | Some setId1, Some setId2 -> // merge sets into set 1
+            // merge sets into 1
+            let set2 = idToSet[setId2]
+
+            { iToSetId = List.fold (fun map i -> Map.add i setId1 map) iToSetId set2
+              idToSet =
+                idToSet
+                |> Map.remove setId2
+                |> Map.change setId1 (Option.map (fun set1 -> set2 @ set1))
+              nextSetId = nextSetId }
+
+    let solveImpl1 path n =
+        let coords = parseFile path
+        let closest = sortedPairsWithDist coords |> Array.take n
+
+        Array.fold
+            connectIndices
+            { iToSetId = Map.empty
+              idToSet = Map.empty
+              nextSetId = 1 }
+            closest
+        |> fun helper -> Map.values helper.idToSet
+        |> Seq.map List.length
+        |> Seq.toArray
+        |> Array.sortDescending
+        |> Array.take 3
+        |> Array.reduce (*)
+
+    let solveImpl2 path =
+        let coords = parseFile path
+        let closest = sortedPairsWithDist coords
+
+        let i =
+            Seq.scan
+                connectIndices
+                { iToSetId = Map.empty
+                  idToSet = Map.empty
+                  nextSetId = 1 }
+                closest
+            |> Seq.map (fun helper -> Map.values helper.idToSet)
+            |> Seq.findIndex (fun sets ->
+                Seq.length sets = 1
+                && Seq.head sets |> List.length |> (=) coords.Length)
+
+        let i1, i2 = closest[i - 1] // the last pair we needed to add before being complete
+        coords[i1].x * coords[i2].x
+
+
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day08_example.txt" 10} ref(40)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day08.txt" 1000} ref(57564)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day08_example.txt"} ref(25272)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day08.txt"} ref(133296744L)"""
