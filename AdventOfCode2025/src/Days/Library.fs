@@ -612,7 +612,7 @@ module Day9 =
         |> Seq.map (fun es -> area es, es)
 
     let solveImpl1 path =
-        path |> parseFile |> areasAndEdgePairs |> Seq.maxBy fst |> snd
+        path |> parseFile |> areasAndEdgePairs |> Seq.maxBy fst |> snd |> area
 
     let solveImpl2 path =
         let redTiles = parseFile path
@@ -625,8 +625,8 @@ module Day9 =
                 | (x1, y1), (x2, y2) when y1 = y2 -> [ min x1 x2 .. max x1 x2 ] |> List.map (fun x -> x, y1)
                 | _ -> [])
 
-        let coordsOnXLineToIntervals =
-            List.map snd
+        let coordsOnLineToIntervals which =
+            List.map which
             >> List.sort
             >> List.fold // remove neighboring duplicates
                 (fun l v ->
@@ -644,7 +644,7 @@ module Day9 =
         let horizontalBordersOfX =
             greenBorderHorizontal
             |> List.groupBy fst
-            |> List.map (fun (x, ys) -> x, ys |> coordsOnXLineToIntervals)
+            |> List.map (fun (x, ys) -> x, ys |> coordsOnLineToIntervals snd)
             |> Map
 
         let isValid (c1, c2) =
