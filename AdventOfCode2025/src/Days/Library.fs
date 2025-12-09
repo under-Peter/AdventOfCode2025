@@ -618,47 +618,61 @@ module Day9 =
         let redTiles = parseFile path
         let redTilesWrapAround = List.last redTiles :: redTiles
 
-        let greenBorderHorizontal =
+        let greenBorder =
             redTilesWrapAround
             |> List.pairwise
             |> List.collect (function
-                | (x1, y1), (x2, y2) when y1 = y2 -> [ min x1 x2 .. max x1 x2 ] |> List.map (fun x -> x, y1)
+                | (x1, y1), (x2, y2) when y1 = y2 && x1 < x2 -> [ x1..x2 ] |> List.map (fun x -> (x, y1), 'l')
+                | (x1, y1), (x2, y2) when y1 = y2 && x1 > x2 -> [ x2..x1 ] |> List.map (fun x -> (x, y1), 'r')
+                | (x1, y1), (x2, y2) when x1 = x2 && y1 < y2 -> [ y1..y2 ] |> List.map (fun y -> (x1, y), 'u')
+                | (x1, y1), (x2, y2) when x1 = x2 && y1 > y2 -> [ y2..y1 ] |> List.map (fun y -> (x1, y), 'd')
                 | _ -> [])
 
-        let coordsOnLineToIntervals which =
-            List.map which
-            >> List.sort
-            >> List.fold // remove neighboring duplicates
-                (fun l v ->
-                    match l with
-                    | w :: r when w = v -> r
-                    | _ -> v :: l)
-                []
-            >> List.rev
-            >> List.pairwise // pair up 'border crossings'
-            >> Seq.mapi tuple2
-            >> Seq.filter (fun (i, v) -> i % 1 = 0)
-            >> Seq.map snd
-            >> Seq.toList
-
-        let horizontalBordersOfX =
-            greenBorderHorizontal
-            |> List.groupBy fst
-            |> List.map (fun (x, ys) -> x, ys |> coordsOnLineToIntervals snd)
+        let crossings pickCoord pickOtherCoord ofChar border =
+            border
+            |> List.groupBy (fun (coord, _) -> pickCoord coord)
+            |> List.map (fun (x, sameXs) ->
+                x,
+                sameXs
+                |> List.filter (fun (_, dir) -> ofChar |> List.contains dir)
+                |> List.map (fun (coord, d) -> pickOtherCoord coord, d)
+                |> List.sortByDescending fst
+                |> List.fold
+                    (fun (prevDir, l) (y, dir) ->
+                        match l with
+                        | l when dir <> prevDir -> dir, y :: l
+                        | h :: r when dir = prevDir -> dir, y :: r
+                        | _ -> failwith "impossible")
+                    (' ', [])
+                |> snd
+                |> List.pairwise // pair up coordinates where we change from inside to outside and vice versa
+                |> Seq.mapi tuple2
+                |> Seq.filter (fun (i, _) -> i % 1 = 0) // only keep even cases - those describing the intervals where we're inside
+                |> Seq.map snd
+                |> Seq.toList)
             |> Map
 
-        let isValid (c1, c2) =
-            let xMin = min (fst c1) (fst c2)
-            let xMax = max (fst c1) (fst c2)
-            let yMin = min (snd c1) (snd c2)
-            let yMax = max (snd c1) (snd c2)
+        let leftRight = [ 'l'; 'r' ]
+        let upDown = [ 'u'; 'd' ]
 
-            seq { xMin..xMax } // x-coords
-            |> Seq.forall (fun x ->
-                Map.tryFind x horizontalBordersOfX
-                |> Option.bind (List.tryFindBack (fun (iStart, _) -> iStart <= yMin))
-                |> Option.map (fun (_, iEnd) -> yMax <= iEnd)
-                |> Option.getOrElse false)
+        let crossingsInYOfX = crossings fst snd leftRight greenBorder
+
+        let crossingsInXOfY = crossings snd fst upDown greenBorder
+
+        let isValid ((x1, y1), (x2, y2)) =
+            let xLimits = min x1 x2, max x1 x2
+            let yLimits = min y1 y2, max y1 y2
+
+            let isInbounds input crossingsMap limits =
+                input
+                |> List.map (fun x ->
+                    crossingsMap
+                    |> Map.tryFind x
+                    |> Option.map (List.exists (fun (iStart, iEnd) -> iStart <= fst limits && snd limits <= iEnd)))
+                |> List.forall (Option.getOrElse false)
+
+            isInbounds [ fst xLimits; snd xLimits ] crossingsInYOfX yLimits
+            && isInbounds [ fst yLimits; snd yLimits ] crossingsInXOfY xLimits
 
         areasAndEdgePairs redTiles
         |> Seq.toArray
