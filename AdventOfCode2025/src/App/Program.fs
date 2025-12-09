@@ -13,6 +13,7 @@ let dispatch n =
     | 6 -> Day6.solve ()
     | 7 -> Day7.solve ()
     | 8 -> Day8.solve ()
+    | 9 -> Day9.solve ()
     | _ -> failwithf "Unknown function id: %d." n
 
 [<EntryPoint>]

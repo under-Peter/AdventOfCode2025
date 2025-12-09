@@ -569,3 +569,106 @@ module Day8 =
         printfn $"""%A{solveImpl1 "../Days/data/day08.txt" 1000} ref(57564)"""
         printfn $"""%A{solveImpl2 "../Days/data/day08_example.txt"} ref(25272)"""
         printfn $"""%A{solveImpl2 "../Days/data/day08.txt"} ref(133296744L)"""
+
+module Day9 =
+    let draw coords =
+        let minX = coords |> List.minBy fst |> fst
+        let maxX = coords |> List.maxBy fst |> fst
+        let minY = coords |> List.minBy snd |> snd
+        let maxY = coords |> List.maxBy snd |> snd
+
+        [ minY..maxY ]
+        |> List.map (
+            (fun y ->
+                [ minX..maxX ]
+                |> List.map (fun x ->
+                    List.sumBy ((=) (x, y) >> Util.boolToInt) coords
+                    |> fun m -> if m > 0 then char m + '0' else '.'))
+            >> List.toArray
+        )
+        |> List.map System.String
+        |> String.concat "\n"
+        |> fun str -> String.concat "\n" [ ""; str; "" ]
+
+
+    let parseLine line =
+        line
+        |> String.splitChar [| ',' |]
+        |> Array.map Util.parseInt64
+        |> function
+            | [| Some x; Some y |] -> x, y
+            | _ -> failwithf "failed to parse line '%s'" line
+
+
+    let parseFile = File.ReadLines >> Seq.map parseLine >> Seq.toList
+
+    let area ((x1, y1), (x2, y2)) =
+        (abs (x1 - x2) + 1L) * (abs (y1 - y2) + 1L)
+
+    let areasAndEdgePairs edges =
+        seq { 0 .. (List.length edges - 1) }
+        |> Seq.collect (fun i -> seq { i + 1 .. (List.length edges - 1) } |> Seq.map (fun j -> i, j))
+        |> Seq.map (fun (i, j) -> edges[i], edges[j])
+        |> Seq.map (fun es -> area es, es)
+
+    let solveImpl1 path =
+        path |> parseFile |> areasAndEdgePairs |> Seq.maxBy fst |> snd
+
+    let solveImpl2 path =
+        let redTiles = parseFile path
+        let redTilesWrapAround = List.last redTiles :: redTiles
+
+        let greenBorderHorizontal =
+            redTilesWrapAround
+            |> List.pairwise
+            |> List.collect (function
+                | (x1, y1), (x2, y2) when y1 = y2 -> [ min x1 x2 .. max x1 x2 ] |> List.map (fun x -> x, y1)
+                | _ -> [])
+
+        let coordsOnXLineToIntervals =
+            List.map snd
+            >> List.sort
+            >> List.fold // remove neighboring duplicates
+                (fun l v ->
+                    match l with
+                    | w :: r when w = v -> r
+                    | _ -> v :: l)
+                []
+            >> List.rev
+            >> List.pairwise // pair up 'border crossings'
+            >> Seq.mapi tuple2
+            >> Seq.filter (fun (i, v) -> i % 1 = 0)
+            >> Seq.map snd
+            >> Seq.toList
+
+        let horizontalBordersOfX =
+            greenBorderHorizontal
+            |> List.groupBy fst
+            |> List.map (fun (x, ys) -> x, ys |> coordsOnXLineToIntervals)
+            |> Map
+
+        let isValid (c1, c2) =
+            let xMin = min (fst c1) (fst c2)
+            let xMax = max (fst c1) (fst c2)
+            let yMin = min (snd c1) (snd c2)
+            let yMax = max (snd c1) (snd c2)
+
+            seq { xMin..xMax } // x-coords
+            |> Seq.forall (fun x ->
+                Map.tryFind x horizontalBordersOfX
+                |> Option.bind (List.tryFindBack (fun (iStart, _) -> iStart <= yMin))
+                |> Option.map (fun (_, iEnd) -> yMax <= iEnd)
+                |> Option.getOrElse false)
+
+        areasAndEdgePairs redTiles
+        |> Seq.toArray
+        |> Array.sortDescending
+        |> Array.tryFind (snd >> isValid)
+        |> Option.map fst
+        |> Option.getOrFail "oh no"
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day09_example.txt"} ref(50)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day09.txt"} ref(4748985168)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day09_example.txt"} ref(24)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day09.txt"} ref(1550760868L)"""
