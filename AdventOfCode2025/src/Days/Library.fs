@@ -159,8 +159,6 @@ module Day3 =
         seq { 0 .. Array.length xs - 1 }
         |> Seq.fold (fun iMax i -> if xs[i] > xs[iMax] then i else iMax) 0
 
-
-    [<TailCall>]
     let rec maxJoltageBatteries pick (nums: int[]) =
         match pick with
         | 0 -> []
@@ -744,8 +742,8 @@ module Day10 =
 
         match buttons, allOff with
         | _, true -> Some 0
-        | [], false -> None
-        | head :: tail, false ->
+        | [], _ -> None
+        | head :: tail, _ ->
             match minimalPresses indicatorLights tail, minimalPresses (applyButton indicatorLights head) tail with
             | Some buttoneSkipped, Some buttonApplied -> Some(min buttoneSkipped (1 + buttonApplied))
             | None, Some buttonApplied -> Some(1 + buttonApplied)
@@ -759,43 +757,78 @@ module Day10 =
         |> List.choose id
         |> List.sum
 
-    let applyButton' (joltages: Joltages) (button: Button) times =
+    let applyButton' (joltages: Joltages) (button: Button) =
         joltages
-        |> Array.mapi (fun i v -> if button |> List.contains i then v - times else v)
+        |> Array.mapi (fun i v -> if button |> List.contains i then v + 1 else v)
 
-    let rec minimalPresses' (joltages: Joltages) (buttons: Buttons) =
-        match joltages |> Array.forall ((=) 0) with
-        | true -> Some 0
-        | false ->
-            match joltages |> Array.exists ((>) 0) || List.isEmpty buttons with
-            | true -> None
-            | false ->
-                let button = List.head buttons
-                let tail = List.tail buttons
+    let minimalPresses' (joltage, buttons) =
+        //printfn "joltage: %A\n" joltage
+        //buttons
+        //|> List.map (fun button ->
+        //[ 0 .. (Array.length joltage) ]
+        //|> List.map (fun i -> List.contains i button |> Util.boolToInt))
+        //|> printfn "buttons: %A\n"
 
-                let maxApplications =
-                    joltages
-                    |> Seq.mapi tuple2
-                    |> Seq.filter (fun (i, _) -> List.contains i button)
-                    |> Seq.map snd
-                    |> Seq.min
+        let allZeros = joltage |> Array.map (fun _ -> 0)
 
-                seq { 0..maxApplications }
-                |> Seq.map (fun n -> minimalPresses' (applyButton' joltages button n) tail |> Option.map ((+) n))
-                |> Seq.choose id
-                |> function
-                    | l when Seq.isEmpty l -> None
-                    | l -> l |> Seq.min |> Some
+        // addition with carry but 'digits' are limited by joltage
+        let increase ind =
+            ind
+            |> Array.zip joltage
+            |> Array.rev
+            |> Array.fold
+                (fun (l, c) (x, y) ->
+                    match x >= y + c with
+                    | true -> y + c :: l, 0
+                    | false -> 0 :: l, 1)
+                ([], 1)
+            |> fst
+            |> List.toArray
+
+        let increase' (ind : array<int>) table =
+            let nextInd =
+                table
+                |> Map.keys
+                |> Seq.find ((<) ind)
+            nextInd
+
+        let rec helper table i=
+            // all I want is the next larger key
+            let ind = Map.keys table |> Seq.skip i |> Seq.head
+            match Map.tryFind ind table with
+            | Some nSteps when ind = joltage -> nSteps
+            | Some nSteps ->
+                buttons
+                |> List.map (applyButton' ind)
+                |> List.filter 
+                    (fun newJoltage -> Array.zip joltage newJoltage |> Array.forall (fun (x, y) -> x >= y))
+                |> List.fold
+                    (fun map newJoltage ->
+                        map
+                        |> Map.change newJoltage (function
+                            | Some nStepsPrev -> Some(min (nSteps + 1) nStepsPrev)
+                            | None -> Some(nSteps + 1)))
+                    table
+                |> fun newTable -> helper newTable (i+1)
+            | None -> failwith "oh no"
+
+        let table = Map.empty |> Map.add allZeros 0
+        helper table 0
 
     let solveImpl2 path =
-        path
-        |> parseFile
-        |> List.map (fun (_, buttons, joltage) -> minimalPresses' joltage buttons)
-        |> List.choose id
+
+        let lines = path |> parseFile
+
+        lines
+        |> List.map (fun (_, buttons, joltage) -> joltage, buttons)
+        |> List.map (minimalPresses' >> fun x -> printfn "%A" x; x)
         |> List.sum
+
+    // * presses (still) commute
+    // * once a joltage is 0, all buttons that contain it must be removed
 
     let solve () =
         printfn $"""%A{solveImpl1 "../Days/data/day10_example.txt"} ref(7)"""
         printfn $"""%A{solveImpl1 "../Days/data/day10.txt"} ref(550)"""
         printfn $"""%A{solveImpl2 "../Days/data/day10_example.txt"} ref(33)"""
-//printfn $"""%A{solveImpl2 "../Days/data/day10.txt"} ref(1550760868L)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day10.txt"} ref(1550760868L)"""
