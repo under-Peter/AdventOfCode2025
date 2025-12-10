@@ -686,3 +686,116 @@ module Day9 =
         printfn $"""%A{solveImpl1 "../Days/data/day09.txt"} ref(4748985168)"""
         printfn $"""%A{solveImpl2 "../Days/data/day09_example.txt"} ref(24)"""
         printfn $"""%A{solveImpl2 "../Days/data/day09.txt"} ref(1550760868L)"""
+
+module Day10 =
+    type IndicatorLights = array<bool>
+    type Button = list<int>
+    type Buttons = list<Button>
+    type Joltages = array<int>
+
+    let parseLine line =
+        let parts = line |> String.splitChar [| ' ' |] |> Array.toList
+
+        let indicatorLights: IndicatorLights =
+            parts[0]
+            |> String.toCharArray
+            |> Array.choose (function
+                | '#' -> Some true
+                | '.' -> Some false
+                | _ -> None)
+
+        let buttons: Buttons =
+            parts
+            |> List.tail
+            |> List.choose (function
+                | str when String.startsWith "(" str ->
+                    str
+                    |> String.splitChar [| ','; '('; ')' |]
+                    |> Array.toList
+                    |> List.choose Util.parseInt
+                    |> Some
+                | _ -> None)
+
+        let joltage: Joltages =
+            parts
+            |> List.last
+            |> (function
+            | str when String.startsWith "{" str ->
+                str
+                |> String.splitChar [| ','; '{'; '}' |]
+                |> Array.choose Util.parseInt
+                |> Some
+            | _ -> None)
+            |> Option.getOrFail "could not process joltage"
+
+        indicatorLights, buttons, joltage
+
+    let parseFile = File.ReadLines >> Seq.map parseLine >> Seq.toList
+
+    let applyButton (indicatorLights: IndicatorLights) (button: Button) =
+        indicatorLights
+        |> Array.mapi (fun i v -> if button |> List.contains i then not v else v)
+
+    let rec minimalPresses indicatorLights (buttons: Buttons) =
+        // getting from initially all-false to the requested configuration requires the
+        // same presses as vice versa and sequence of presses is irrelevant
+        // pressing buttons twice undoes its action, so we may only consider pressing a button or not
+        let allOff = Array.forall not indicatorLights
+
+        match buttons, allOff with
+        | _, true -> Some 0
+        | [], false -> None
+        | head :: tail, false ->
+            match minimalPresses indicatorLights tail, minimalPresses (applyButton indicatorLights head) tail with
+            | Some x, Some y -> Some(min x (1 + y))
+            | None, Some y -> Some(1 + y)
+            | Some x, None -> Some x
+            | None, None -> None
+
+    let solveImpl1 path =
+        path
+        |> parseFile
+        |> List.map (fun (indicatorLights, buttons, _) -> minimalPresses indicatorLights buttons)
+        |> List.choose id
+        |> List.sum
+
+    let applyButton' (joltages: Joltages) (button: Button) times =
+        joltages
+        |> Array.mapi (fun i v -> if button |> List.contains i then v - times else v)
+
+    let rec minimalPresses' (joltages: Joltages) (buttons: Buttons) =
+        match joltages |> Array.forall ((=) 0) with
+        | true -> Some 0
+        | false ->
+            match joltages |> Array.exists ((>) 0) || List.isEmpty buttons with
+            | true -> None
+            | false ->
+                let button = List.head buttons
+                let tail = List.tail buttons
+
+                let maxApplications =
+                    joltages
+                    |> Seq.mapi tuple2
+                    |> Seq.filter (fun (i, _) -> List.contains i button)
+                    |> Seq.map snd
+                    |> Seq.min
+
+                seq { 0..maxApplications }
+                |> Seq.map (fun n -> minimalPresses' (applyButton' joltages button n) tail |> Option.map ((+) n))
+                |> Seq.choose id
+                |> function
+                    | l when Seq.isEmpty l -> None
+                    | l -> l |> Seq.min |> Some
+
+    let solveImpl2 path =
+        path
+        |> parseFile
+        |> List.map (fun (_, buttons, joltage) -> minimalPresses' joltage buttons)
+        |> List.choose id
+        |> List.sum
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day10_example.txt"} ref(7)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day10.txt"} ref(550)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day10_example.txt"} ref(33)"""
+//printfn $"""%A{solveImpl2 "../Days/data/day10.txt"} ref(1550760868L)"""
