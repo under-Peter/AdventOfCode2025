@@ -747,9 +747,9 @@ module Day10 =
         | [], false -> None
         | head :: tail, false ->
             match minimalPresses indicatorLights tail, minimalPresses (applyButton indicatorLights head) tail with
-            | Some x, Some y -> Some(min x (1 + y))
-            | None, Some y -> Some(1 + y)
-            | Some x, None -> Some x
+            | Some buttoneSkipped, Some buttonApplied -> Some(min buttoneSkipped (1 + buttonApplied))
+            | None, Some buttonApplied -> Some(1 + buttonApplied)
+            | Some buttoneSkipped, None -> Some buttoneSkipped
             | None, None -> None
 
     let solveImpl1 path =
