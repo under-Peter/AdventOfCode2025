@@ -860,6 +860,24 @@ module Day11 =
 
         helper "you"
 
+    let solveImpl1' path =
+        let connections = parseFile path 
+
+        let rec helper from visited =
+            let newVisited = Set.add from visited
+            match from with
+            | _ when Set.contains from visited -> 0
+            | "out" -> 1
+            | _ ->
+                match connections |> Map.tryFind from with
+                | Some targets -> 
+                    targets 
+                    |> Array.filter ((fun node -> Set.contains node visited) >> not)
+                    |> Array.sumBy (fun target -> helper target newVisited)
+                | None -> 0
+
+        helper "you" Set.empty
+
     let solveImpl2 path =
         let connections = parseFile path 
 
@@ -884,8 +902,39 @@ module Day11 =
 
         helper "svr" (false, false)
 
+    let solveImpl2' path =
+        let connections = parseFile path 
+
+        let memo = new Dictionary<_, _>()
+
+        let rec helper from visited =
+            let visitedDac = Set.contains "dac" visited
+            let visitedFFT = Set.contains "fft" visited
+            match memo.TryFind (from, (visitedDac,visitedFFT)) with
+            | Some res -> res
+            | None ->
+                let res =
+                    match from with
+                    | _ when Set.contains from visited -> 0L
+                    | "out" ->
+                         (visitedDac && visitedFFT) |> Util.boolToInt |> int64
+                    | _ ->
+                        match connections |> Map.tryFind from with
+                        | Some targets ->
+                            targets |> Array.sumBy (fun target -> helper target (Set.add from visited))
+                        | None -> 0L
+
+                memo.Add((from, (visitedDac,visitedFFT)), res)
+                res
+
+        helper "svr" Set.empty
+
     let solve () =
         printfn $"""%A{solveImpl1 "../Days/data/day11_example.txt"} ref(5)"""
+        printfn $"""%A{solveImpl1' "../Days/data/day11_example.txt"} ref(5)"""
         printfn $"""%A{solveImpl1 "../Days/data/day11.txt"} ref(431)"""
+        printfn $"""%A{solveImpl1' "../Days/data/day11.txt"} ref(431)"""
         printfn $"""%A{solveImpl2 "../Days/data/day11_example2.txt"} ref(2)"""
+        printfn $"""%A{solveImpl2' "../Days/data/day11_example2.txt"} ref(2)"""
         printfn $"""%A{solveImpl2 "../Days/data/day11.txt"} ref(358458157650450L)"""
+        printfn $"""%A{solveImpl2' "../Days/data/day11.txt"} ref(358458157650450L)"""
