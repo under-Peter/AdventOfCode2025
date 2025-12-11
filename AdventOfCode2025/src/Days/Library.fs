@@ -28,6 +28,16 @@ module Util =
     // duplicate keys will be taken from first
     let mergeMaps m1 m2 = Map.foldBack Map.add m1 m2
 
+    let timed foo =
+        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+        let res = foo ()
+        stopWatch.Stop()
+        stopWatch.Elapsed.TotalMilliseconds, res
+
+    let printTimedResult foo ref =
+        timed foo |> fun (t, res) -> printfn "%A %A (%A ms)" res (res = ref) t
+
+
 module Day1 =
     let wrapAround = 100
     let startPos = 50
@@ -785,23 +795,20 @@ module Day10 =
             |> fst
             |> List.toArray
 
-        let increase' (ind : array<int>) table =
-            let nextInd =
-                table
-                |> Map.keys
-                |> Seq.find ((<) ind)
+        let increase' (ind: array<int>) table =
+            let nextInd = table |> Map.keys |> Seq.find ((<) ind)
             nextInd
 
-        let rec helper table i=
+        let rec helper table i =
             // all I want is the next larger key
             let ind = Map.keys table |> Seq.skip i |> Seq.head
+
             match Map.tryFind ind table with
             | Some nSteps when ind = joltage -> nSteps
             | Some nSteps ->
                 buttons
                 |> List.map (applyButton' ind)
-                |> List.filter 
-                    (fun newJoltage -> Array.zip joltage newJoltage |> Array.forall (fun (x, y) -> x >= y))
+                |> List.filter (fun newJoltage -> Array.zip joltage newJoltage |> Array.forall (fun (x, y) -> x >= y))
                 |> List.fold
                     (fun map newJoltage ->
                         map
@@ -809,7 +816,7 @@ module Day10 =
                             | Some nStepsPrev -> Some(min (nSteps + 1) nStepsPrev)
                             | None -> Some(nSteps + 1)))
                     table
-                |> fun newTable -> helper newTable (i+1)
+                |> fun newTable -> helper newTable (i + 1)
             | None -> failwith "oh no"
 
         let table = Map.empty |> Map.add allZeros 0
@@ -821,7 +828,12 @@ module Day10 =
 
         lines
         |> List.map (fun (_, buttons, joltage) -> joltage, buttons)
-        |> List.map (minimalPresses' >> fun x -> printfn "%A" x; x)
+        |> List.map (
+            minimalPresses'
+            >> fun x ->
+                printfn "%A" x
+                x
+        )
         |> List.sum
 
     // * presses (still) commute
@@ -848,7 +860,7 @@ module Day11 =
     let parseFile = File.ReadLines >> Seq.map parseLine >> Map
 
     let solveImpl1 path =
-        let connections = parseFile path 
+        let connections = parseFile path
 
         let rec helper from =
             match from with
@@ -861,17 +873,18 @@ module Day11 =
         helper "you"
 
     let solveImpl1' path =
-        let connections = parseFile path 
+        let connections = parseFile path
 
         let rec helper from visited =
             let newVisited = Set.add from visited
+
             match from with
             | _ when Set.contains from visited -> 0
             | "out" -> 1
             | _ ->
                 match connections |> Map.tryFind from with
-                | Some targets -> 
-                    targets 
+                | Some targets ->
+                    targets
                     |> Array.filter ((fun node -> Set.contains node visited) >> not)
                     |> Array.sumBy (fun target -> helper target newVisited)
                 | None -> 0
@@ -879,7 +892,7 @@ module Day11 =
         helper "you" Set.empty
 
     let solveImpl2 path =
-        let connections = parseFile path 
+        let connections = parseFile path
 
         let memo = new Dictionary<_, _>()
 
@@ -903,38 +916,40 @@ module Day11 =
         helper "svr" (false, false)
 
     let solveImpl2' path =
-        let connections = parseFile path 
+        let connections = parseFile path
 
         let memo = new Dictionary<_, _>()
 
         let rec helper from visited =
             let visitedDac = Set.contains "dac" visited
             let visitedFFT = Set.contains "fft" visited
-            match memo.TryFind (from, (visitedDac,visitedFFT)) with
+
+            match memo.TryFind(from, (visitedDac, visitedFFT)) with
             | Some res -> res
             | None ->
                 let res =
                     match from with
                     | _ when Set.contains from visited -> 0L
-                    | "out" ->
-                         (visitedDac && visitedFFT) |> Util.boolToInt |> int64
+                    | "out" -> (visitedDac && visitedFFT) |> Util.boolToInt |> int64
                     | _ ->
                         match connections |> Map.tryFind from with
-                        | Some targets ->
-                            targets |> Array.sumBy (fun target -> helper target (Set.add from visited))
+                        | Some targets -> targets |> Array.sumBy (fun target -> helper target (Set.add from visited))
                         | None -> 0L
 
-                memo.Add((from, (visitedDac,visitedFFT)), res)
+                memo.Add((from, (visitedDac, visitedFFT)), res)
                 res
 
         helper "svr" Set.empty
 
     let solve () =
-        printfn $"""%A{solveImpl1 "../Days/data/day11_example.txt"} ref(5)"""
-        printfn $"""%A{solveImpl1' "../Days/data/day11_example.txt"} ref(5)"""
-        printfn $"""%A{solveImpl1 "../Days/data/day11.txt"} ref(431)"""
-        printfn $"""%A{solveImpl1' "../Days/data/day11.txt"} ref(431)"""
-        printfn $"""%A{solveImpl2 "../Days/data/day11_example2.txt"} ref(2)"""
-        printfn $"""%A{solveImpl2' "../Days/data/day11_example2.txt"} ref(2)"""
-        printfn $"""%A{solveImpl2 "../Days/data/day11.txt"} ref(358458157650450L)"""
-        printfn $"""%A{solveImpl2' "../Days/data/day11.txt"} ref(358458157650450L)"""
+        Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day11_example.txt") 5
+        Util.printTimedResult (fun () -> solveImpl1' "../Days/data/day11_example.txt") 5
+
+        Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day11.txt") 431
+        Util.printTimedResult (fun () -> solveImpl1' "../Days/data/day11.txt") 431
+
+        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day11_example2.txt") 2
+        Util.printTimedResult (fun () -> solveImpl2' "../Days/data/day11_example2.txt") 2
+
+        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day11.txt") 358458157650450L
+        Util.printTimedResult (fun () -> solveImpl2' "../Days/data/day11.txt") 358458157650450L
