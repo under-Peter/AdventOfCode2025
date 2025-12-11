@@ -832,3 +832,60 @@ module Day10 =
         printfn $"""%A{solveImpl1 "../Days/data/day10.txt"} ref(550)"""
         printfn $"""%A{solveImpl2 "../Days/data/day10_example.txt"} ref(33)"""
         printfn $"""%A{solveImpl2 "../Days/data/day10.txt"} ref(1550760868L)"""
+
+module Day11 =
+    let parseLine line =
+        let origin, targets =
+            match line |> String.splitChar [| ':' |] with
+            | [| origin; targets |] -> (String.trim origin, targets)
+            | _ -> failwithf "unexpected input %A" line
+
+        origin,
+        targets
+        |> String.splitChar [| ' ' |]
+        |> Array.filter (String.IsNullOrEmpty >> not)
+
+    let parseFile = File.ReadLines >> Seq.map parseLine >> Map
+
+    let solveImpl1 path =
+        let connections = parseFile path 
+
+        let rec helper from =
+            match from with
+            | "out" -> 1
+            | _ ->
+                match connections |> Map.tryFind from with
+                | Some targets -> targets |> Array.sumBy (fun target -> helper target)
+                | None -> 0
+
+        helper "you"
+
+    let solveImpl2 path =
+        let connections = parseFile path 
+
+        let memo = new Dictionary<_, _>()
+
+        let rec helper from (visitedDac, visitedFFT) =
+            match memo.TryFind(from, (visitedDac, visitedFFT)) with
+            | Some res -> res
+            | None ->
+                let res =
+                    match from with
+                    | "out" -> if visitedDac && visitedFFT then 1L else 0L
+                    | _ ->
+                        match connections |> Map.tryFind from with
+                        | Some targets ->
+                            let updatedVisited = visitedDac || from = "dac", visitedFFT || from = "fft"
+                            targets |> Array.sumBy (fun target -> helper target updatedVisited)
+                        | None -> 0L
+
+                memo.Add((from, (visitedDac, visitedFFT)), res)
+                res
+
+        helper "svr" (false, false)
+
+    let solve () =
+        printfn $"""%A{solveImpl1 "../Days/data/day11_example.txt"} ref(5)"""
+        printfn $"""%A{solveImpl1 "../Days/data/day11.txt"} ref(431)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day11_example2.txt"} ref(2)"""
+        printfn $"""%A{solveImpl2 "../Days/data/day11.txt"} ref(358458157650450L)"""
