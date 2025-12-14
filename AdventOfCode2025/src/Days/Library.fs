@@ -780,47 +780,59 @@ module Day10 =
         //|> printfn "buttons: %A\n"
 
         let allZeros = joltage |> Array.map (fun _ -> 0)
+        let allFalse = joltage |> Array.map (fun _ -> false)
 
-        // addition with carry but 'digits' are limited by joltage
-        let increase ind =
-            ind
-            |> Array.zip joltage
-            |> Array.rev
-            |> Array.fold
-                (fun (l, c) (x, y) ->
-                    match x >= y + c with
-                    | true -> y + c :: l, 0
-                    | false -> 0 :: l, 1)
-                ([], 1)
-            |> fst
-            |> List.toArray
+        let buttonList =
+            buttons
+            |> List.map (fun b -> joltage |> Array.mapi (fun i _ -> List.contains i b))
 
-        let increase' (ind: array<int>) table =
-            let nextInd = table |> Map.keys |> Seq.find ((<) ind)
-            nextInd
+        let revMasks =
+            buttonList
+            |> List.rev
+            |> List.scan (fun acc b -> Array.map2 (||) acc b) allFalse
+            |> List.tail
+            |> List.rev
 
-        let rec helper table i =
-            // all I want is the next larger key
-            let ind = Map.keys table |> Seq.skip i |> Seq.head
+        let rec weirdPartition joltage buttonList revMasks =
+            match buttonList with
+            | [] when joltage = allZeros -> Some 0
+            | [] -> None
+            | button :: rest ->
+                let maxPresses =
+                    Array.zip joltage button
+                    |> Array.filter snd
+                    |> Option.someIf (Array.isEmpty >> not)
+                    |> Option.map (Array.minBy fst >> fst)
+                    |> Option.getOrElse 0
 
-            match Map.tryFind ind table with
-            | Some nSteps when ind = joltage -> nSteps
-            | Some nSteps ->
-                buttons
-                |> List.map (applyButton' ind)
-                |> List.filter (fun newJoltage -> Array.zip joltage newJoltage |> Array.forall (fun (x, y) -> x >= y))
-                |> List.fold
-                    (fun map newJoltage ->
-                        map
-                        |> Map.change newJoltage (function
-                            | Some nStepsPrev -> Some(min (nSteps + 1) nStepsPrev)
-                            | None -> Some(nSteps + 1)))
-                    table
-                |> fun newTable -> helper newTable (i + 1)
-            | None -> failwith "oh no"
+                let revMask = buttonList |> List.reduce (Array.map2 (||)) |> Array.map not
+                let impossible = Seq.zip joltage revMask |> Seq.exists (fun (j, b) -> b && j > 0)
+                let minPresses = if impossible then maxPresses + 1 else 0
 
-        let table = Map.empty |> Map.add allZeros 0
-        helper table 0
+                seq { minPresses..maxPresses }
+                |> Seq.fold
+                    (fun minSoFar times ->
+                        match minSoFar with
+                        | Some i when i < times -> None
+                        | _ ->
+                            let newJoltage = Array.map2 (fun b j -> if b then j - times else j) button joltage
+
+                            let minHere =
+                                weirdPartition newJoltage rest (List.tail revMasks) |> Option.map ((+) times)
+
+                            match minHere, minSoFar with
+                            | Some i, Some j -> Some(min i j)
+                            | None, Some j -> Some j
+                            | Some i, None -> Some i
+                            | _ -> None)
+                    None
+        //|> Seq.choose (fun times ->
+        //let newJoltage = Array.map2 (fun b j -> if b then j - times else j) button joltage
+        //weirdPartition newJoltage rest (List.tail revMasks) |> Option.map ((+) times))
+        //|> Option.someIf (Seq.isEmpty >> not)
+        //|> Option.map Seq.min
+
+        weirdPartition joltage buttonList revMasks |> Option.getOrFail "oh no"
 
     let solveImpl2 path =
 
@@ -828,22 +840,18 @@ module Day10 =
 
         lines
         |> List.map (fun (_, buttons, joltage) -> joltage, buttons)
-        |> List.map (
-            minimalPresses'
-            >> fun x ->
-                printfn "%A" x
-                x
-        )
-        |> List.sum
+        |> List.toArray
+        |> Array.Parallel.map minimalPresses'
+        |> Array.sum
 
     // * presses (still) commute
     // * once a joltage is 0, all buttons that contain it must be removed
 
     let solve () =
-        printfn $"""%A{solveImpl1 "../Days/data/day10_example.txt"} ref(7)"""
-        printfn $"""%A{solveImpl1 "../Days/data/day10.txt"} ref(550)"""
-        printfn $"""%A{solveImpl2 "../Days/data/day10_example.txt"} ref(33)"""
-        printfn $"""%A{solveImpl2 "../Days/data/day10.txt"} ref(1550760868L)"""
+        Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day10_example.txt") 7
+        Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day10.txt") 550
+        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day10_example.txt") 33
+        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day10.txt") -1
 
 module Day11 =
     let parseLine line =
