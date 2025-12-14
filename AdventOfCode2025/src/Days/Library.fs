@@ -4,6 +4,8 @@ open System.IO
 open System.Collections.Generic
 open System
 open FSharpx
+open Google.OrTools.LinearSolver
+
 
 module Util =
     let parseInt64: string -> option<int64> =
@@ -767,72 +769,30 @@ module Day10 =
         |> List.choose id
         |> List.sum
 
-    let applyButton' (joltages: Joltages) (button: Button) =
-        joltages
-        |> Array.mapi (fun i v -> if button |> List.contains i then v + 1 else v)
+    let minimalPresses' (joltage: Joltages, buttons: Buttons) =
+        let solver = Solver.CreateSolver "SCIP"
 
-    let minimalPresses' (joltage, buttons) =
-        //printfn "joltage: %A\n" joltage
-        //buttons
-        //|> List.map (fun button ->
-        //[ 0 .. (Array.length joltage) ]
-        //|> List.map (fun i -> List.contains i button |> Util.boolToInt))
-        //|> printfn "buttons: %A\n"
+        // variable for every button
+        let bPresses =
+            [ 0 .. (List.length buttons) ]
+            |> List.map (fun i -> solver.MakeIntVar(0, joltage |> Array.sum |> float, sprintf "button%A" i))
 
-        let allZeros = joltage |> Array.map (fun _ -> 0)
-        let allFalse = joltage |> Array.map (fun _ -> false)
+        let buttonsOfJoltage =
+            [ 0 .. (Array.length joltage) ]
+            |> List.map (fun i -> i, buttons |> List.indexed |> List.filter (snd >> List.contains i) |> List.map fst)
+            |> Map
 
-        let buttonList =
-            buttons
-            |> List.map (fun b -> joltage |> Array.mapi (fun i _ -> List.contains i b))
+        // constraint for every joltage for contributing button-presses to up add to it
+        joltage
+        |> Array.mapi (fun i joltage ->
+            let c = solver.MakeConstraint(joltage, joltage, sprintf "constraint%A" i)
+            buttonsOfJoltage[i] |> List.iter (fun j -> c.SetCoefficient(bPresses[j], 1)))
+        |> ignore
 
-        let revMasks =
-            buttonList
-            |> List.rev
-            |> List.scan (fun acc b -> Array.map2 (||) acc b) allFalse
-            |> List.tail
-            |> List.rev
+        solver.Minimize(List.reduce (+) (List.map ((*) 1.0) bPresses))
 
-        let rec weirdPartition joltage buttonList revMasks =
-            match buttonList with
-            | [] when joltage = allZeros -> Some 0
-            | [] -> None
-            | button :: rest ->
-                let maxPresses =
-                    Array.zip joltage button
-                    |> Array.filter snd
-                    |> Option.someIf (Array.isEmpty >> not)
-                    |> Option.map (Array.minBy fst >> fst)
-                    |> Option.getOrElse 0
-
-                let revMask = buttonList |> List.reduce (Array.map2 (||)) |> Array.map not
-                let impossible = Seq.zip joltage revMask |> Seq.exists (fun (j, b) -> b && j > 0)
-                let minPresses = if impossible then maxPresses + 1 else 0
-
-                seq { minPresses..maxPresses }
-                |> Seq.fold
-                    (fun minSoFar times ->
-                        match minSoFar with
-                        | Some i when i < times -> None
-                        | _ ->
-                            let newJoltage = Array.map2 (fun b j -> if b then j - times else j) button joltage
-
-                            let minHere =
-                                weirdPartition newJoltage rest (List.tail revMasks) |> Option.map ((+) times)
-
-                            match minHere, minSoFar with
-                            | Some i, Some j -> Some(min i j)
-                            | None, Some j -> Some j
-                            | Some i, None -> Some i
-                            | _ -> None)
-                    None
-        //|> Seq.choose (fun times ->
-        //let newJoltage = Array.map2 (fun b j -> if b then j - times else j) button joltage
-        //weirdPartition newJoltage rest (List.tail revMasks) |> Option.map ((+) times))
-        //|> Option.someIf (Seq.isEmpty >> not)
-        //|> Option.map Seq.min
-
-        weirdPartition joltage buttonList revMasks |> Option.getOrFail "oh no"
+        solver.Solve() |> ignore
+        (solver.Objective()).Value() |> int
 
     let solveImpl2 path =
 
@@ -841,7 +801,7 @@ module Day10 =
         lines
         |> List.map (fun (_, buttons, joltage) -> joltage, buttons)
         |> List.toArray
-        |> Array.Parallel.map minimalPresses'
+        |> Array.map minimalPresses'
         |> Array.sum
 
     // * presses (still) commute
@@ -851,7 +811,7 @@ module Day10 =
         Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day10_example.txt") 7
         Util.printTimedResult (fun () -> solveImpl1 "../Days/data/day10.txt") 550
         Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day10_example.txt") 33
-        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day10.txt") -1
+        Util.printTimedResult (fun () -> solveImpl2 "../Days/data/day10.txt") 20042
 
 module Day11 =
     let parseLine line =
